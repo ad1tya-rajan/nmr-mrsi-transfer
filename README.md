@@ -48,7 +48,7 @@ Pipeline:
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/nmr-mrsi-transfer.git
+git clone https://github.com/ad1tya-rajan/nmr-mrsi-transfer.git
 cd nmr-mrsi-transfer
 pip install -r requirements.txt
 
