@@ -36,7 +36,7 @@ Pipeline:
 2. **Forward Simulation**
    - Generate synthetic FID signals via parametric model.
 3. **Paired Dataset Construction**
-   - Create paired parameter sets: θ_NMR → θ_9.4T.
+   - Create paired parameter sets: $\theta^{NMR} \rightarrow \theta^{MRSI}$.
 4. **Neural Network Training**
    - Train residual MLP regression model.
 5. **Physics-Based Validation**
