@@ -10,7 +10,7 @@ Rather than mapping raw spectra, we operate in a structured parametric domain re
 
 ![NMR_vs_MRSI](assets/spectra.png)
 
-High-field NMR and in vivo 9.4T MRSI measure the same metabolites but produce domain-shifted spectral representations due to:
+High-field NMR (left) and in vivo 9.4T MRSI (right) measure the same metabolites but produce domain-shifted spectral representations due to:
 
 - Field strength differences  
 - Relaxation and linewidth variations  
