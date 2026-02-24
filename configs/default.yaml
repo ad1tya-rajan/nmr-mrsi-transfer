@@ -1,0 +1,41 @@
+# Default training configuration
+
+model:
+  hidden_dim: 256
+  n_layers: 4
+  dropout: 0.1
+
+optimizer:
+  lr: 1e-3
+  weight_decay: 1e-5
+
+scheduler:
+  factor: 0.5
+  patience: 10
+
+loss:
+  type: "huber"
+  delta: 1.0
+
+dataset:
+  type: "synthetic"  # or "real" when data is available
+  n_train: 10000
+  n_val: 1000
+
+transfer:
+  noise_level: 0.1
+  amplitude_scale: 0.8
+  linewidth_broadening: 1.3
+  frequency_jitter: 1.5
+
+training:
+  n_epochs: 100
+  batch_size: 32
+  num_workers: 0
+
+transforms:
+  log_params: ["Cm", "T2", "T2_prime", "g"]
+  zscore_params: ["Cm", "T2", "T2_prime", "delta_f", "g"]
+  phase_params: ["phi"]
+  transform_global: true
+
