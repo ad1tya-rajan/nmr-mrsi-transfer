@@ -50,12 +50,12 @@ def transfer(
     for i in range(n_samples):
         for met in schema.metabolites:
             # Amplitude scaling (typically reduced in MRSI)
-            Cm_nmr = schema.get_param(theta_nmr[i], met, "Cm")
+            Cm_nmr = schema.get_param(theta_nmr[i], met, "concentration")
             Cm_mrsi = Cm_nmr * amplitude_scale
             # Add noise
             Cm_mrsi *= (1.0 + np.random.normal(0, noise_level * 0.1))
             Cm_mrsi = np.maximum(Cm_mrsi, 0.01)  # Ensure positive
-            schema.set_param(theta_mrsi[i], met, "Cm", Cm_mrsi)
+            schema.set_param(theta_mrsi[i], met, "concentration", Cm_mrsi)
             
             # T2: typically shorter in MRSI (increased relaxation)
             T2_nmr = schema.get_param(theta_nmr[i], met, "T2")
@@ -66,18 +66,18 @@ def transfer(
             schema.set_param(theta_mrsi[i], met, "T2", T2_mrsi)
             
             # T2': also shorter in MRSI
-            T2p_nmr = schema.get_param(theta_nmr[i], met, "T2_prime")
+            T2p_nmr = schema.get_param(theta_nmr[i], met, "T2p")
             T2p_mrsi = T2p_nmr / linewidth_broadening
             T2p_mrsi *= (1.0 + np.random.normal(0, noise_level * 0.15))
             T2p_mrsi = np.clip(T2p_mrsi, 5.0, 200.0)
-            schema.set_param(theta_mrsi[i], met, "T2_prime", T2p_mrsi)
+            schema.set_param(theta_mrsi[i], met, "T2p", T2p_mrsi)
             
             # Frequency shift: increased jitter in MRSI
-            df_nmr = schema.get_param(theta_nmr[i], met, "delta_f")
+            df_nmr = schema.get_param(theta_nmr[i], met, "freq_shift")
             df_mrsi = df_nmr * frequency_jitter
             # Add additional jitter
             df_mrsi += np.random.normal(0, noise_level * 2.0)
-            schema.set_param(theta_mrsi[i], met, "delta_f", df_mrsi)
+            schema.set_param(theta_mrsi[i], met, "freq_shift", df_mrsi)
         
         # Global phase: add noise
         phi_nmr = schema.get_global_param(theta_nmr[i], "phi")
@@ -87,11 +87,11 @@ def transfer(
         schema.set_global_param(theta_mrsi[i], "phi", phi_mrsi)
         
         # Global linewidth: increased in MRSI
-        g_nmr = schema.get_global_param(theta_nmr[i], "g")
+        g_nmr = schema.get_global_param(theta_nmr[i], "linewidth")
         g_mrsi = g_nmr * linewidth_broadening
         g_mrsi *= (1.0 + np.random.normal(0, noise_level * 0.1))
         g_mrsi = np.clip(g_mrsi, 0.5, 3.0)
-        schema.set_global_param(theta_mrsi[i], "g", g_mrsi)
+        schema.set_global_param(theta_mrsi[i], "linewidth", g_mrsi)
     
     if is_1d:
         theta_mrsi = theta_mrsi[0]

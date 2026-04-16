@@ -1,141 +1,134 @@
-"""
-Tests for forward model and FID simulation.
-
-Sanity checks:
-- Single-metabolite: turning on delta_f shifts spectrum as expected
-- Increasing g broadens peaks
-"""
+"""Tests for the forward model implementation."""
 
 import numpy as np
 import pytest
-from src.simulation.forward_model import simulate_fid, fid_to_spectrum
+
 from src.utils.schema import default_schema
+from src.simulation.forward_model import simulate_fid, fid_to_spectrum
 
 
-def test_single_metabolite_fid():
-    """Test that FID is generated for a single metabolite."""
-    schema = default_schema
-    D = schema.total_dim
-    
-    # Create parameter vector with only NAA active
-    theta = np.zeros(D)
-    schema.set_param(theta, "NAA", "Cm", 1.0)
-    schema.set_param(theta, "NAA", "T2", 200.0)
-    schema.set_param(theta, "NAA", "T2_prime", 50.0)
-    schema.set_param(theta, "NAA", "delta_f", 0.0)
-    schema.set_global_param(theta, "phi", 0.0)
-    schema.set_global_param(theta, "g", 1.0)
-    
-    # Generate FID
-    fid = simulate_fid(theta, n_points=1024)
-    
-    assert fid.shape == (1024,)
-    assert np.any(np.abs(fid) > 0), "FID should have non-zero values"
-    assert np.iscomplexobj(fid), "FID should be complex"
+def make_dummy_theta():
+    """Create a dummy parameter vector with reasonable values."""
+    theta = np.zeros(default_schema.total_dim)
+    for met in default_schema.metabolites:
+        theta[default_schema.get_idx(met, 'concentration')] = 0.1
+        theta[default_schema.get_idx(met, 'T2')] = 100.0  # ms
+        theta[default_schema.get_idx(met, 'T2p')] = 50.0   # ms
+        theta[default_schema.get_idx(met, 'freq_shift')] = 0.0
+    theta[default_schema.get_global_param_idx('phi')] = 0.0
+    theta[default_schema.get_global_param_idx('linewidth')] = 0.0
+    return theta
 
 
-def test_frequency_shift():
-    """Test that delta_f shifts the spectrum."""
-    schema = default_schema
-    D = schema.total_dim
+def test_simulate_fid_60dim_input():
+    """Test that 60-dimensional input (metabolite params only) works."""
+    # Create 60-dim input (metabolite params only)
+    theta_60 = np.zeros(60)  # 10 metabolites × 6 params each
+    for i, met in enumerate(default_schema.metabolites):
+        base_idx = i * 6
+        theta_60[base_idx + 0] = 0.1  # concentration
+        theta_60[base_idx + 1] = 100.0  # T2 (ms)
+        theta_60[base_idx + 2] = 50.0   # T2p (ms)
+        theta_60[base_idx + 3] = 0.0    # phase
+        theta_60[base_idx + 4] = 0.0    # freq_shift
+        theta_60[base_idx + 5] = 0.0    # linewidth
     
-    # Create two parameter vectors with different frequency shifts
-    theta1 = np.zeros(D)
-    schema.set_param(theta1, "NAA", "Cm", 1.0)
-    schema.set_param(theta1, "NAA", "T2", 200.0)
-    schema.set_param(theta1, "NAA", "T2_prime", 50.0)
-    schema.set_param(theta1, "NAA", "delta_f", 0.0)
-    schema.set_global_param(theta1, "phi", 0.0)
-    schema.set_global_param(theta1, "g", 1.0)
+    # Should work with 60-dim input
+    fid_60 = simulate_fid(theta_60)
+    assert fid_60.shape == (2048,)
+    assert fid_60.dtype == np.complex128
     
-    theta2 = np.zeros(D)
-    schema.set_param(theta2, "NAA", "Cm", 1.0)
-    schema.set_param(theta2, "NAA", "T2", 200.0)
-    schema.set_param(theta2, "NAA", "T2_prime", 50.0)
-    schema.set_param(theta2, "NAA", "delta_f", 10.0)  # 10 Hz shift
-    schema.set_global_param(theta2, "phi", 0.0)
-    schema.set_global_param(theta2, "g", 1.0)
+    # Should produce same result as 62-dim with zero globals
+    theta_62 = np.zeros(62)
+    theta_62[:60] = theta_60
+    fid_62 = simulate_fid(theta_62)
     
-    # Generate FIDs
-    fid1 = simulate_fid(theta1, n_points=1024)
-    fid2 = simulate_fid(theta2, n_points=1024)
-    
-    # Convert to spectra
-    freqs1, spec1 = fid_to_spectrum(fid1)
-    freqs2, spec2 = fid_to_spectrum(fid2)
-    
-    # Find peak locations
-    peak_idx1 = np.argmax(np.abs(spec1))
-    peak_idx2 = np.argmax(np.abs(spec2))
-    
-    # Peak should shift (though exact shift depends on implementation)
-    # For now, just check that spectra are different
-    assert not np.allclose(spec1, spec2), "Spectra should differ with frequency shift"
+    np.testing.assert_array_almost_equal(fid_60, fid_62)
 
 
-def test_linewidth_broadening():
-    """Test that increasing g broadens peaks."""
-    schema = default_schema
-    D = schema.total_dim
+def test_simulate_fid_no_nan_inf():
+    """Ensure no NaN or Inf in FID output."""
+    theta = make_dummy_theta()
+    fid = simulate_fid(theta)
     
-    # Create two parameter vectors with different g values
-    theta1 = np.zeros(D)
-    schema.set_param(theta1, "NAA", "Cm", 1.0)
-    schema.set_param(theta1, "NAA", "T2", 200.0)
-    schema.set_param(theta1, "NAA", "T2_prime", 50.0)
-    schema.set_param(theta1, "NAA", "delta_f", 0.0)
-    schema.set_global_param(theta1, "phi", 0.0)
-    schema.set_global_param(theta1, "g", 0.5)  # Narrow
+    has_nan = np.isnan(fid).any()
+    has_inf = np.isinf(fid).any()
+    print(f"FID has NaN: {has_nan}, has Inf: {has_inf}, max abs: {np.max(np.abs(fid)):.6f}")
+    assert not has_nan
+    assert not has_inf
+
+
+def test_zero_amplitude_zero_contribution():
+    """Zero concentration should give zero signal."""
+    theta = make_dummy_theta()
+    # Set all concentrations to zero
+    for met in default_schema.metabolites:
+        theta[default_schema.get_idx(met, 'concentration')] = 0.0
     
-    theta2 = np.zeros(D)
-    schema.set_param(theta2, "NAA", "Cm", 1.0)
-    schema.set_param(theta2, "NAA", "T2", 200.0)
-    schema.set_param(theta2, "NAA", "T2_prime", 50.0)
-    schema.set_param(theta2, "NAA", "delta_f", 0.0)
-    schema.set_global_param(theta2, "phi", 0.0)
-    schema.set_global_param(theta2, "g", 2.0)  # Broad
+    fid = simulate_fid(theta)
+    max_abs = np.max(np.abs(fid))
+    print(f"With zero concentrations, max |FID| = {max_abs:.2e}")
+    assert np.allclose(fid, 0.0, atol=1e-10)
+
+
+def test_freq_shift_affects_oscillation():
+    """Different freq_shift should change the signal phase/frequency."""
+    theta1 = make_dummy_theta()
+    theta1[default_schema.get_idx('met_1', 'freq_shift')] = 10.0  # Hz
     
-    # Generate FIDs
-    fid1 = simulate_fid(theta1, n_points=1024)
-    fid2 = simulate_fid(theta2, n_points=1024)
+    theta2 = make_dummy_theta()
+    theta2[default_schema.get_idx('met_1', 'freq_shift')] = 20.0  # Hz
     
-    # Convert to spectra
-    freqs1, spec1 = fid_to_spectrum(fid1)
-    freqs2, spec2 = fid_to_spectrum(fid2)
+    fid1 = simulate_fid(theta1)
+    fid2 = simulate_fid(theta2)
     
-    # Broader peak should decay faster in time domain
-    # Check that fid2 decays faster (has smaller values earlier)
-    decay_rate1 = np.abs(fid1[100]) / np.abs(fid1[0])
-    decay_rate2 = np.abs(fid2[100]) / np.abs(fid2[0])
+    # Should be different
+    diff_max = np.max(np.abs(fid1 - fid2))
+    print(f"Max difference between freq_shift 10Hz vs 20Hz: {diff_max:.6f}")
+    assert not np.allclose(fid1, fid2, atol=1e-3)
+
+
+def test_linewidth_affects_damping():
+    """Larger linewidth should increase Gaussian damping."""
+    theta1 = make_dummy_theta()
+    theta1[default_schema.get_global_param_idx('linewidth')] = 0.0
     
-    # Higher g should lead to faster decay (smaller ratio)
-    # Note: This is a sanity check; exact behavior depends on implementation
-    assert decay_rate2 < decay_rate1 or np.allclose(decay_rate1, decay_rate2, atol=0.1), \
-        "Higher g should lead to faster decay"
+    theta2 = make_dummy_theta()
+    theta2[default_schema.get_global_param_idx('linewidth')] = 100.0
+    
+    fid1 = simulate_fid(theta1)
+    fid2 = simulate_fid(theta2)
+    
+    # Should be different due to damping
+    diff_max = np.max(np.abs(fid1 - fid2))
+    print(f"Max difference between linewidth 0 vs 100: {diff_max:.6f}")
+    assert not np.allclose(fid1, fid2, atol=1e-3)
+
+
+def test_batch_vs_single_consistency():
+    """Batch and single-sample should give same results."""
+    theta = make_dummy_theta()
+    
+    fid_single = simulate_fid(theta)
+    fid_batch = simulate_fid(np.stack([theta, theta]))[0]
+    
+    max_diff = np.max(np.abs(fid_single - fid_batch))
+    print(f"Max difference between single and batch[0]: {max_diff:.2e}")
+    assert np.allclose(fid_single, fid_batch, atol=1e-10)
 
 
 def test_fid_to_spectrum():
-    """Test FID to spectrum conversion."""
-    schema = default_schema
-    D = schema.total_dim
+    """Test spectrum conversion."""
+    theta = make_dummy_theta()
+    fid = simulate_fid(theta)
     
-    theta = np.zeros(D)
-    schema.set_param(theta, "NAA", "Cm", 1.0)
-    schema.set_param(theta, "NAA", "T2", 200.0)
-    schema.set_param(theta, "NAA", "T2_prime", 50.0)
-    schema.set_param(theta, "NAA", "delta_f", 0.0)
-    schema.set_global_param(theta, "phi", 0.0)
-    schema.set_global_param(theta, "g", 1.0)
-    
-    fid = simulate_fid(theta, n_points=1024)
     freqs, spectrum = fid_to_spectrum(fid)
     
-    assert freqs.shape == (1024,)
-    assert spectrum.shape == (1024,)
-    assert np.iscomplexobj(spectrum)
-    assert len(freqs) == len(spectrum)
+    print(f"Spectrum shape: {spectrum.shape}, freq range: {freqs.min():.1f} to {freqs.max():.1f} Hz")
+    assert freqs.shape == (2048,)
+    assert spectrum.shape == (2048,)
+    assert spectrum.dtype == np.complex128
 
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

@@ -88,9 +88,9 @@ def sample_metabolite_params(
     
     params = np.zeros((n_samples, schema.n_metabolite_params))
     
-    # Sample Cm (concentration/amplitude)
+    # Sample concentration (amplitude)
     Cm_min, Cm_max = config.Cm_range
-    params[:, schema.get_param_idx("Cm")] = np.random.uniform(
+    params[:, schema.get_param_idx("concentration")] = np.random.uniform(
         Cm_min, Cm_max, size=n_samples
     )
     
@@ -107,15 +107,26 @@ def sample_metabolite_params(
     T2p_min, T2p_max = config.T2_prime_range
     T2p_mean = (T2p_min + T2p_max) / 2
     T2p_std = (T2p_max - T2p_min) / 4
-    params[:, schema.get_param_idx("T2_prime")] = np.clip(
+    params[:, schema.get_param_idx("T2p")] = np.clip(
         np.abs(np.random.normal(T2p_mean, T2p_std, size=n_samples)),
         T2p_min, T2p_max
     )
     
-    # Sample delta_f (frequency shift)
+    # Sample phase (uniform in [-pi, pi])
+    params[:, schema.get_param_idx("phase")] = np.random.uniform(
+        -np.pi, np.pi, size=n_samples
+    )
+    
+    # Sample freq_shift (frequency shift)
     df_min, df_max = config.delta_f_range
-    params[:, schema.get_param_idx("delta_f")] = np.random.uniform(
+    params[:, schema.get_param_idx("freq_shift")] = np.random.uniform(
         df_min, df_max, size=n_samples
+    )
+    
+    # Sample linewidth (metabolite-specific linewidth, uniform)
+    # Use a reasonable range for metabolite linewidths
+    params[:, schema.get_param_idx("linewidth")] = np.random.uniform(
+        0.1, 2.0, size=n_samples
     )
     
     return params
@@ -151,13 +162,13 @@ def sample_global_params(
     
     # Sample phi (global phase)
     phi_min, phi_max = config.phi_range
-    params[:, schema.get_global_param_idx("phi")] = np.random.uniform(
+    params[:, schema.global_params.index("phi")] = np.random.uniform(
         phi_min, phi_max, size=n_samples
     )
     
     # Sample g (global linewidth factor)
     g_min, g_max = config.g_range
-    params[:, schema.get_global_param_idx("g")] = np.random.uniform(
+    params[:, schema.global_params.index("linewidth")] = np.random.uniform(
         g_min, g_max, size=n_samples
     )
     

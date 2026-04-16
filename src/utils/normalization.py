@@ -20,10 +20,10 @@ class TransformConfig:
     sin/cos representation (for phase).
     """
     # Parameters that should be log-transformed (typically positive values)
-    log_params: List[str] = field(default_factory=lambda: ["Cm", "T2", "T2_prime", "g"])
+    log_params: List[str] = field(default_factory=lambda: ["concentration", "T2", "T2p", "linewidth"])
     
     # Parameters that should be z-scored (centered and scaled)
-    zscore_params: List[str] = field(default_factory=lambda: ["Cm", "T2", "T2_prime", "delta_f", "g"])
+    zscore_params: List[str] = field(default_factory=lambda: ["concentration", "T2", "T2p", "freq_shift", "linewidth"])
     
     # Parameters that use sin/cos representation (phase)
     phase_params: List[str] = field(default_factory=lambda: ["phi"])
@@ -68,7 +68,7 @@ def fit_stats(
     if config.transform_global:
         for param in schema.global_params:
             if param in config.log_params:
-                idx = schema.get_global_idx(param)
+                idx = schema.get_global_param_idx(param)
                 X_transformed[:, idx] = np.log(np.maximum(X[:, idx], 1e-10))
     
     mean = np.mean(X_transformed, axis=0)
@@ -136,7 +136,7 @@ def transform(
     # Transform global parameters
     if config.transform_global:
         for param in schema.global_params:
-            idx = schema.get_global_idx(param)
+            idx = schema.get_global_param_idx(param)
             
             if param in config.phase_params:
                 theta_tilde[:, idx] = np.sin(theta[:, idx])
@@ -207,7 +207,7 @@ def inverse_transform(
     # Inverse transform global parameters
     if config.transform_global:
         for param in schema.global_params:
-            idx = schema.get_global_idx(param)
+            idx = schema.get_global_param_idx(param)
             
             if param in config.zscore_params:
                 theta[:, idx] = theta[:, idx] * std[idx] + mean[idx]

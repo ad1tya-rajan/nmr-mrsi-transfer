@@ -19,11 +19,11 @@ def compute_mae_per_group(
     Compute MAE per parameter group.
     
     Groups:
-    - amplitudes: All Cm values
+    - amplitudes: All concentration values
     - T2: All T2 values
-    - T2_prime: All T2' values
-    - delta_f: All frequency shifts
-    - global: Global parameters (phi, g)
+    - T2p: All T2' values
+    - freq_shift: All frequency shifts
+    - global: Global parameters (phi, linewidth)
     
     Args:
         pred: Predicted parameters, shape (n_samples, D)
@@ -41,10 +41,10 @@ def compute_mae_per_group(
     
     metrics = {}
     
-    # Amplitudes (Cm)
+    # Amplitudes (concentration)
     cm_indices = []
     for met in schema.metabolites:
-        cm_indices.append(schema.get_idx(met, "Cm"))
+        cm_indices.append(schema.get_idx(met, "concentration"))
     cm_indices = np.array(cm_indices)
     metrics["mae_amplitudes"] = np.mean(np.abs(pred[:, cm_indices] - target[:, cm_indices]))
     
@@ -58,16 +58,16 @@ def compute_mae_per_group(
     # T2'
     t2p_indices = []
     for met in schema.metabolites:
-        t2p_indices.append(schema.get_idx(met, "T2_prime"))
+        t2p_indices.append(schema.get_idx(met, "T2p"))
     t2p_indices = np.array(t2p_indices)
-    metrics["mae_T2_prime"] = np.mean(np.abs(pred[:, t2p_indices] - target[:, t2p_indices]))
+    metrics["mae_T2p"] = np.mean(np.abs(pred[:, t2p_indices] - target[:, t2p_indices]))
     
     # Frequency shifts
     df_indices = []
     for met in schema.metabolites:
-        df_indices.append(schema.get_idx(met, "delta_f"))
+        df_indices.append(schema.get_idx(met, "freq_shift"))
     df_indices = np.array(df_indices)
-    metrics["mae_delta_f"] = np.mean(np.abs(pred[:, df_indices] - target[:, df_indices]))
+    metrics["mae_freq_shift"] = np.mean(np.abs(pred[:, df_indices] - target[:, df_indices]))
     
     # Global parameters
     global_start = schema.n_metabolites * schema.n_metabolite_params
@@ -88,7 +88,7 @@ def check_physical_plausibility(
     Check physical plausibility of parameter vectors.
     
     Checks:
-    - Positive values for Cm, T2, T2', g
+    - Positive values for concentration, T2, T2', linewidth
     - T2 and T2' within reasonable ranges
     - Phase within [-pi, pi]
     
@@ -114,12 +114,12 @@ def check_physical_plausibility(
     for i in range(n_samples):
         # Check metabolite parameters
         for met in schema.metabolites:
-            Cm = schema.get_param(theta[i], met, "Cm")
+            Cm = schema.get_param(theta[i], met, "concentration")
             T2 = schema.get_param(theta[i], met, "T2")
-            T2p = schema.get_param(theta[i], met, "T2_prime")
+            T2p = schema.get_param(theta[i], met, "T2p")
             
             if Cm <= 0:
-                violations.append(f"Sample {i}, {met}: Cm <= 0 ({Cm:.4f})")
+                violations.append(f"Sample {i}, {met}: concentration <= 0 ({Cm:.4f})")
             if T2 <= 0:
                 violations.append(f"Sample {i}, {met}: T2 <= 0 ({T2:.4f})")
             if T2p <= 0:
@@ -130,7 +130,7 @@ def check_physical_plausibility(
                 violations.append(f"Sample {i}, {met}: T2' out of range ({T2p:.4f})")
         
         # Check global parameters
-        g = schema.get_global_param(theta[i], "g")
+        g = schema.get_global_param(theta[i], "linewidth")
         if g <= 0:
             violations.append(f"Sample {i}: g <= 0 ({g:.4f})")
     
